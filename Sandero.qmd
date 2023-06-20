@@ -1,5 +1,5 @@
 ---
-title: "Trabalho Final - Tarifação"
+title: "Tarifação de Seguros"
 author: "Marco Rocha - Debora Rocha"
 format: html
 editor: visual
