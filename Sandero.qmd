@@ -1,0 +1,315 @@
+---
+title: "Trabalho Final - Tarifação"
+author: "Marco Rocha - Debora Rocha"
+format: html
+editor: visual
+---
+
+## Sandero
+
+• Análise exploratória dos dados.
+• Ajuste um modelo para a frequência e severidade de sinistros em função das
+variáveis: sexo, idade do condutor e estado
+
+```{r warning=F , message= F}
+# Autores: Debora Rocha e Marco Rocha 
+# Carregando Pacotes ------------------------------------------------------
+library(tidyverse)
+library(readxl)
+library(fitdistrplus)
+library(MASS)
+require(pscl)
+require (hnp)
+require(boot)
+# Lendo os dados
+dados <- read_excel("E:/7° Semestre 2023-01/Tarifação Seguros/Trabalho Final/Insurance_Modeling/Dados R.xlsx")
+# 121 observações, 15 variáveis
+dados <- dados[-121,]
+
+```
+
+Agora é preciso agrupar os dados por Região e por tipos de sinistro.
+
+```{r}
+
+# Agrupando os dados por sub_regiões e por tipo de sinistro ---------------
+dados$Freq_Total <- dados$Freq_Incencio_Roubo + dados$Freq_Colisao + dados$Freq_Outras
+
+dados$Indeni_Total <- dados$Indeni_Colisao + dados$Indeni_Incencio_Roubo + dados$Indeni_Outras
+
+dados$Regiao = substr(dados$Regiao, start=1, stop=2)
+
+dados$Freq_Media <- dados$Freq_Total / dados$Expostos
+dados$Indeni_Media <- dados$Indeni_Total / dados$Expostos
+
+
+
+
+```
+
+## Análise Exploratória
+
+### Sexo
+
+```{r}
+# Análise Explortória -----------------------------------------------------
+
+attach(dados)
+
+# Distribuição das variavies de interrese 
+ggplot(dados, aes(x=Freq_Media)) + geom_histogram(bins = 25, col='blue')+
+  ggtitle("Distribuição da Frequência média de sinistros")
+
+ggplot(dados, aes(x=Indeni_Media)) + geom_histogram(bins = 50, col='blue')+
+   ggtitle("Distribuição da Indenização média por sinistro")
+
+
+# Distribuição das variavies de interrese por sexo 
+
+ggplot(dados, aes(x=Freq_Media, color=Sexo)) + geom_histogram()+ facet_wrap(~Sexo)+
+  ggtitle("Frequência média de sinistros por Sexo")
+
+ggplot(dados, aes(x=Indeni_Media, color=Sexo)) + geom_histogram()+ facet_wrap(~Sexo)+
+  ggtitle("Indenização média de sinistros por Sexo")
+
+
+ggplot(dados, aes(y=Freq_Media, color=Sexo)) + geom_boxplot()+ facet_wrap(~Sexo)+
+  ggtitle("Frequência média de sinistros por Sexo")
+
+ggplot(dados, aes(y=Indeni_Media, color=Sexo)) + geom_boxplot()+ facet_wrap(~Sexo)+
+  ggtitle("Indenização média de sinistros por Sexo")
+
+
+
+
+```
+
+### Idade 
+
+```{r}
+ggplot(dados, aes(x=Freq_Media)) + geom_histogram(color='blue')+ facet_wrap(~Idade)+
+  ggtitle("Frequência média de sinistros por Idade")
+```
+
+```{r}
+ggplot(dados, aes(x=Indeni_Media)) + geom_histogram(color='blue')+ facet_wrap(~Idade)+
+  ggtitle("Indenização média de sinistros por Idade")
+```
+
+```{r}
+ggplot(dados, aes(y=Freq_Media, color=Idade)) + geom_boxplot()+ 
+  ggtitle("Frequência média de sinistros por Idade")
+
+ggplot(dados, aes(y=Indeni_Media, color=Idade)) + geom_boxplot()+ 
+  ggtitle("Indenização média de sinistros por Idade")
+
+```
+
+```{r}
+ggplot(dados, aes(y=Freq_Total, color=Idade)) + geom_boxplot()+ 
+  ggtitle("Frequência total de sinistros por Idade")
+
+ggplot(dados, aes(y=Indeni_Total, color=Idade)) + geom_boxplot()+ 
+  ggtitle("Indenização total de sinistros por Idade")
+```
+
+### Estado 
+
+```{r}
+ggplot(dados, aes(x=Freq_Media)) + geom_histogram(color='blue')+ facet_wrap(~Regiao)+
+  ggtitle("Frequência média de sinistros por Região")
+
+
+
+```
+
+```{r}
+ggplot(dados, aes(x=Indeni_Media)) + geom_histogram(color='blue')+ facet_wrap(~Regiao)+
+  ggtitle("Indenização média de sinistros por Região")
+
+dados2 <- dados[dados$Indeni_Media<3000,]
+
+ggplot(dados2, aes(x=Indeni_Media)) + geom_histogram(color='blue')+ facet_wrap(~Regiao)+
+  ggtitle("Indenização média de sinistros por Região")
+```
+
+### Relação número de sinistro e valor de indenizações 
+
+```{r}
+
+ggplot(dados, aes(y= Indeni_Total, x = Freq_Total)) + geom_point()+ 
+  ggtitle("Frequência total e indenização total")
+
+ggplot(dados, aes(y= Indeni_Total, x = Freq_Total)) + geom_smooth()+ geom_point()+
+  ggtitle("Frequência total e indenização total")
+
+
+dados1 <- dados[dados$Freq_Total<4500,]
+
+ggplot(dados1, aes(y= Indeni_Total, x = Freq_Total)) + geom_smooth()+ geom_point()+
+  ggtitle("Frequência total e indenização total")
+```
+
+### Total de expostos 
+
+```{r}
+
+# total de expostos homens 
+
+ggplot(dados, aes(x = Sexo)) + geom_bar()+ 
+  ggtitle("Expostos por sexo")
+
+```
+
+Fazer uma tabela de expostos por faixa etária por estado e por sexo
+
+```{r}
+soma_sexo_F <- dados %>%
+  filter(Sexo == "Feminino") %>%
+  summarize(soma = sum(Expostos))
+
+
+soma_sexo_M <- dados %>%
+  filter(Sexo == "Masculino") %>%
+  summarize(soma = sum(Expostos))
+
+valores <- c(as.numeric(soma_sexo_F),as.numeric(soma_sexo_M))
+barplot(valores)
+
+
+soma_MG <- dados %>%
+  filter(Regiao == "MG") %>%
+  summarize(soma = sum(Expostos))
+
+soma_ES <- dados %>%
+  filter(Regiao == "ES") %>%
+  summarize(soma = sum(Expostos))
+
+soma_RJ <- dados %>%
+  filter(Regiao == "RJ") %>%
+  summarize(soma = sum(Expostos))
+
+
+soma_SP <- dados %>%
+  filter(Regiao == "SP") %>%
+  summarize(soma = sum(Expostos))
+
+
+soma_18_25 <- dados %>%
+  filter(Idade == "Entre 18 e 25 anos") %>%
+  summarize(soma = sum(Expostos))
+
+soma_26_35 <- dados %>%
+  filter(Idade == "Entre 26 e 35 anos") %>%
+  summarize(soma = sum(Expostos))
+
+
+soma_36_45 <- dados %>%
+  filter(Idade == "Entre 36 e 45 anos") %>%
+  summarize(soma = sum(Expostos))
+
+
+soma_46_55 <- dados %>%
+  filter(Idade == "Entre 46 e 55 anos") %>%
+  summarize(soma = sum(Expostos))
+
+soma_55_mais <- dados %>%
+  filter(Idade == "Maior que 55 anos") %>%
+  summarize(soma = sum(Expostos))
+
+expostos_idade <- cbind("Entre 18 e 25 anos" = soma_18_25,
+                        "Entre 26 e 35 anos" = soma_26_35,
+                        "Entre 36 e 45 anos" = soma_36_45,
+                        "Entre 46 e 55 anos" = soma_46_55,
+                        "Maior que 55 anos" = soma_55_mais)
+```
+
+## Modelando a Distribuição da Indenização 
+
+```{r}
+
+## estimador máxima verossimilhança
+fgamEMV = fitdist(dados$Indeni_Media, "gamma", method="mle")
+fgamEMV
+plot(fgamEMV)
+
+fpoisEMV = fitdist(round(dados$Indeni_Media), "pois", method="mle")
+fpoisEMV
+plot(fpoisEMV)
+
+fnbinomEMV= fitdist(round(dados$Indeni_Media), "nbinom", method="mle")
+fnbinomEMV
+plot(fnbinomEMV)
+
+```
+
+## Modelando a distribuição da Frequência 
+
+```{r}
+
+## estimador máxima verossimilhança
+fgamEMV = fitdist(dados$Freq_Media, "gamma", method="mle")
+fgamEMV
+plot(fgamEMV)
+
+fpoisEMV = fitdist((dados$Freq_Total), "pois", method="mle")
+fpoisEMV
+plot(fpoisEMV)
+
+fnbinomEMV= fitdist((dados$Freq_Total), "nbinom", method="mle")
+fnbinomEMV
+plot(fnbinomEMV)
+
+
+```
+
+## Modelos MLG 
+
+### Modelos para Frequência
+
+```{r}
+modelfg = glm(dados$Freq_Media ~ dados$Regiao + dados$Sexo + dados$Idade, family= Gamma)
+summary(modelfg)
+plot(hnp(modelfg, sim=100, type.resid="deviance", how.many.out=TRUE, paint.out=TRUE), main="Resíduos Frequência de Sinistros Observados \n por Estado, Sexo e Idade \n vs. Distribuição Gama")
+```
+
+### Modelos Para Severidade 
+
+```{r}
+
+modelSg = glm(dados$Indeni_Media ~ dados$Regiao + dados$Sexo + dados$Idade, family= Gamma)
+summary(modelSg)
+plot(hnp(modelSg, sim=100, type.resid="deviance", how.many.out=TRUE, paint.out=TRUE),main="Resíduos Severidade de Sinistros Observados \n vs. \n Distribuição Gama com Função Log")
+
+modelSgi = glm(dados$Indeni_Media ~ dados$Regiao + dados$Sexo + dados$Idade, family= Gamma(link = identity))
+summary(modelSgi)
+plot(hnp(modelSgi, sim=100, type.resid="deviance", how.many.out=TRUE, paint.out=TRUE),main="Resíduos Severidade de Sinistros Observados \n vs. \n Distribuição Gama com Função Identidade")
+
+
+modelLN = glm(log(dados$Indeni_Media) ~ dados$Regiao + dados$Sexo + dados$Idade, family= gaussian(link=log))
+summary(modelLN)
+plot(hnp(modelLN, sim=100, type.resid="deviance", how.many.out=TRUE, paint.out=TRUE),main="Resíduos Severidade de Sinistros Observados \n vs. \n Distribuição LogNormal")
+
+# Gráficos de Diagnósticos para GLM, do pacote "boot"
+
+glm.diag.plots(modelSg, glmdiag = glm.diag(modelSg), subset = NULL,iden = FALSE, labels = NULL, ret = FALSE) #"Diagnósticos para o Modelo de Severidade de Sinistros \n utilizando a Distribuição Gama"
+glm.diag.plots(modelSgi, glmdiag = glm.diag(modelSgi), subset = NULL,iden = FALSE, labels = NULL, ret = FALSE) #"Diagnósticos para o Modelo de Severidade de Sinistros \n utilizando a Distribuição Gama"
+glm.diag.plots(modelLN, glmdiag = glm.diag(modelLN), subset = NULL,iden = FALSE, labels = NULL, ret = FALSE) #"Diagnósticos para o Modelo de Severidade de Sinistros \n utilizando a Distribuição Gama"
+
+
+
+
+
+```
+
+```{r}
+modelbinneg = glm.nb(dados$Indeni_Media ~ dados$Regiao + dados$Sexo + dados$Idade)
+
+dados$Severidade <- dados$Indeni_Total / dados$Freq_Total
+
+modelbinneg = glm.nb(dados$Severidade ~ dados$Regiao + dados$Sexo + dados$Idade)
+
+
+summary(modelbinneg)
+plot(hnp(modelbinneg, sim=100, type.resid="deviance", how.many.out=TRUE, paint.out=TRUE),main="Resíduos Severidade de Sinistros Observados \n vs. \n Distribuição Binomial Negativa")
+```
